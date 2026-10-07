@@ -41,6 +41,17 @@ export function settle(timer, now) {
   return { ...timer, status: "finished", remainingMs: 0, endsAt: null };
 }
 
+/**
+ * Like settle(), but also reports whether the timer finished in this very
+ * call. `finished` is true exactly once per run: once the timer is settled it
+ * is no longer running, so later calls return `finished: false`.
+ * @returns {{timer: object, finished: boolean}}
+ */
+export function settleOnce(timer, now) {
+  const settled = settle(timer, now);
+  return { timer: settled, finished: settled !== timer };
+}
+
 /** Milliseconds left, never below 0. */
 export function remainingMs(timer, now) {
   return timer.status === "running" ? msLeft(timer, now) : timer.remainingMs;

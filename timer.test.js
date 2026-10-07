@@ -2,7 +2,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { createState, durationSeconds } from "./cycle.js";
 import {
-  createTimer, start, pause, reset, settle,
+  createTimer, start, pause, reset, settle, settleOnce,
   remainingMs, remainingSeconds, displayRemaining,
 } from "./timer.js";
 
@@ -123,5 +123,28 @@ describe("display formatting of remaining time", () => {
   });
   test("minutes may exceed 99", () => {
     assert.equal(displayRemaining(createTimer(100 * 60), T0), "100:00");
+  });
+});
+
+describe("settleOnce: phase finished exactly once", () => {
+  test("not finished while time is left", () => {
+    const running = start(createTimer(60), T0);
+    const r = settleOnce(running, T0 + 59_000);
+    assert.equal(r.finished, false);
+    assert.equal(r.timer, running);
+  });
+  test("reports finished once, then never again", () => {
+    const running = start(createTimer(60), T0);
+    const first = settleOnce(running, T0 + 60_000);
+    assert.equal(first.finished, true);
+    assert.equal(first.timer.status, "finished");
+    const second = settleOnce(first.timer, T0 + 61_000);
+    assert.equal(second.finished, false);
+    assert.equal(settleOnce(running, T0 + 59_000).finished, false);
+  });
+  test("idle, paused and finished timers never report finished", () => {
+    const idle = createTimer(60);
+    const paused = pause(start(idle, T0), T0 + 1000);
+    for (const t of [idle, paused]) assert.equal(settleOnce(t, T0 + 10 * MIN).finished, false);
   });
 });

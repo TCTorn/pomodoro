@@ -9,3 +9,4 @@ input[aria-invalid="true"] { border-color: #c00; }
 .controls { display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1.5rem; }
 button { padding: 0.4rem 1rem; font-size: 1rem; }
 input:disabled { background: #eee; color: #777; }
+#phase { font-size: 1.5rem; font-weight: 600; margin: 1rem 0 0; }

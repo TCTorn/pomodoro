@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import {
-  DEFAULT_MINUTES, ERROR_MESSAGE, createState, setDuration,
+  DEFAULT_MINUTES, ERROR_MESSAGE, createState, setDuration, nextPhase,
   parseMinutesInput, parseUrlOverrides, durationSeconds, formatTime, displayTime,
 } from "./cycle.js";
 
@@ -94,5 +94,63 @@ describe("formatTime / durationSeconds", () => {
   });
   test("rounds floating point noise (0.1 * 60)", () => {
     assert.equal(durationSeconds(createState("?focus=0.1")), 6);
+  });
+});
+
+describe("nextPhase", () => {
+  const at = (phase, completedFocus) => ({ ...createState(""), phase, completedFocus });
+
+  test("starts on focus with no completed sessions", () => {
+    const s = createState("");
+    assert.equal(s.phase, "focus");
+    assert.equal(s.completedFocus, 0);
+  });
+  test("focus -> short break, with its full length", () => {
+    const { state, seconds } = nextPhase(at("focus", 0));
+    assert.equal(state.phase, "short");
+    assert.equal(state.completedFocus, 1);
+    assert.equal(seconds, 300);
+  });
+  test("4th focus -> long break", () => {
+    const { state, seconds } = nextPhase(at("focus", 3));
+    assert.equal(state.phase, "long");
+    assert.equal(state.completedFocus, 4);
+    assert.equal(seconds, 900);
+  });
+  test("8th focus -> long break again, 5th-7th -> short", () => {
+    assert.equal(nextPhase(at("focus", 7)).state.phase, "long");
+    for (const n of [4, 5, 6]) assert.equal(nextPhase(at("focus", n)).state.phase, "short");
+  });
+  test("short and long break -> focus, count unchanged", () => {
+    for (const phase of ["short", "long"]) {
+      const { state, seconds } = nextPhase(at(phase, 4));
+      assert.equal(state.phase, "focus");
+      assert.equal(state.completedFocus, 4);
+      assert.equal(seconds, 1500);
+    }
+  });
+  test("a full cycle of eight focus sessions", () => {
+    let state = createState("");
+    const seen = [];
+    for (let i = 0; i < 16; i++) {
+      state = nextPhase(state).state;
+      seen.push(state.phase);
+    }
+    assert.deepEqual(seen, [
+      "short", "focus", "short", "focus", "short", "focus", "long", "focus",
+      "short", "focus", "short", "focus", "short", "focus", "long", "focus",
+    ]);
+  });
+  test("uses changed and URL-overridden durations; does not mutate", () => {
+    const before = createState("?short=0.5");
+    assert.equal(nextPhase(before).seconds, 30);
+    assert.equal(before.phase, "focus");
+    assert.equal(before.completedFocus, 0);
+    const { state } = setDuration(at("focus", 3), "long", "20");
+    assert.equal(nextPhase(state).seconds, 1200);
+  });
+  test("durations changed while idle follow the current phase", () => {
+    const { state } = setDuration(nextPhase(at("focus", 0)).state, "short", "7");
+    assert.equal(displayTime(state), "07:00");
   });
 });

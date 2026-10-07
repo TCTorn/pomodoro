@@ -13,6 +13,7 @@ ES modules do not load from `file://`.
 Then open http://localhost:8000.
 
 Optional testing aid: `?focus=0.1` gives a six-second focus phase.
+When a phase ends the app moves to the next one (short break, long break after every 4th focus session, then focus) and waits for Start.
 
 ## Test
 

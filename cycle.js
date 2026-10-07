@@ -48,7 +48,8 @@ export function parseUrlOverrides(search) {
 export function createState(search = "") {
   return {
     minutes: { ...DEFAULT_MINUTES, ...parseUrlOverrides(search) },
-    phase: "focus", // current phase; later stories switch it
+    phase: "focus", // current phase; nextPhase() switches it
+    completedFocus: 0, // focus sessions finished so far (never reset by Reset)
   };
 }
 
@@ -66,6 +67,36 @@ export function setDuration(state, kind, text) {
     error: null,
   };
 }
+
+/** Long break after every this many completed focus sessions. */
+export const FOCUS_BEFORE_LONG_BREAK = 4;
+
+/**
+ * Go to the next phase: focus -> short break (long break after every 4th
+ * completed focus session), any break -> focus. Returns a new state plus the
+ * length of the new phase in seconds. The caller starts nothing: the user
+ * presses Start for each phase.
+ * @returns {{state: object, seconds: number}}
+ */
+export function nextPhase(state) {
+  let next;
+  let completedFocus = state.completedFocus;
+  if (state.phase === "focus") {
+    completedFocus += 1;
+    next = completedFocus % FOCUS_BEFORE_LONG_BREAK === 0 ? "long" : "short";
+  } else {
+    next = "focus";
+  }
+  const nextState = { ...state, phase: next, completedFocus };
+  return { state: nextState, seconds: durationSeconds(nextState) };
+}
+
+/** Visible name of a phase. */
+export const PHASE_LABELS = Object.freeze({
+  focus: "Focus",
+  short: "Short break",
+  long: "Long break",
+});
 
 /** Seconds of the given (default: current) session. Rounded: 0.1 min = 6 s. */
 export function durationSeconds(state, kind = state.phase) {

@@ -1,11 +1,15 @@
 // The only file that touches the DOM and the only file that reads the clock.
-// All logic lives in cycle.js and timer.js.
-import { PHASES, createState, setDuration, displayTime, durationSeconds } from "./cycle.js";
-import { createTimer, start, pause, reset, settle, displayRemaining } from "./timer.js";
+// All logic lives in cycle.js, timer.js and advance.js.
+import {
+  PHASES, PHASE_LABELS, createState, setDuration, displayTime, durationSeconds,
+} from "./cycle.js";
+import { advance } from "./advance.js";
+import { createTimer, start, pause, reset, displayRemaining } from "./timer.js";
 
 let state = createState(window.location.search);
 let timer = createTimer(durationSeconds(state));
 
+const phaseEl = document.getElementById("phase");
 const timerEl = document.getElementById("timer");
 const errorEl = document.getElementById("error");
 const startBtn = document.getElementById("start");
@@ -48,14 +52,35 @@ function stopTicking() {
   }
 }
 
+/**
+ * Single hook for the end of a phase. Called exactly once per finished phase,
+ * after the app has moved to the next phase. AF-12 plays the alert here.
+ * @param {string} finishedPhase "focus", "short" or "long"
+ */
+function onPhaseFinished(finishedPhase) {
+  // Placeholder: the alert sound/notification is AF-12.
+}
+
+/** Settle the timer at `now` and switch phase if it just ended. */
+function settleAndAdvance(now) {
+  const step = advance(state, timer, now);
+  state = step.state;
+  timer = step.timer;
+  if (step.finished) onPhaseFinished(step.finishedPhase);
+}
+
 function onTick() {
-  timer = settle(timer, Date.now());
+  settleAndAdvance(Date.now());
   if (timer.status !== "running") stopTicking();
   render();
 }
 
 function render() {
   const now = Date.now();
+  // Write only on change: this is an aria-live region.
+  if (phaseEl.textContent !== PHASE_LABELS[state.phase]) {
+    phaseEl.textContent = PHASE_LABELS[state.phase];
+  }
   // While idle the timer follows the duration inputs; otherwise it counts down.
   timerEl.textContent = timer.status === "idle" ? displayTime(state) : displayRemaining(timer, now);
   for (const kind of PHASES) {
@@ -66,6 +91,9 @@ function render() {
   pauseBtn.disabled = timer.status !== "running";
 }
 
+// Handlers that must not discard a phase whose end time has passed call
+// settleAndAdvance first (tick, Pause, Reset). Start only acts on an idle or
+// paused timer (never past its end) and the inputs are editable only while idle.
 for (const kind of PHASES) {
   inputs[kind].addEventListener("change", () => {
     const result = setDuration(state, kind, inputs[kind].value);
@@ -84,12 +112,15 @@ startBtn.addEventListener("click", () => {
 });
 
 pauseBtn.addEventListener("click", () => {
-  timer = pause(timer, Date.now());
+  const now = Date.now();
+  settleAndAdvance(now); // the phase may have ended since the last tick
+  timer = pause(timer, now); // only a running timer pauses
   stopTicking();
   render();
 });
 
 resetBtn.addEventListener("click", () => {
+  settleAndAdvance(Date.now()); // do not discard a phase that has already ended
   timer = reset(timer, durationSeconds(state));
   stopTicking();
   render();

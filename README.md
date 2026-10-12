@@ -2,6 +2,8 @@
 
 Plain HTML, CSS and JavaScript. No build step, no dependencies.
 
+Live app: https://tctorn.github.io/pomodoro/
+
 ## Run
 
 Serve the folder and open it in a browser. Do not double-click `index.html`:

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createState, durationSeconds } from "./cycle.js";
 import {
   createTimer, start, pause, reset, settle, settleOnce,
-  remainingMs, remainingSeconds, displayRemaining,
+  remainingMs, remainingSeconds, displayRemaining, elapsedFraction, pageTitle,
 } from "./timer.js";
 
 const T0 = 1_000_000; // fake "now" in ms; the tests never read the real clock
@@ -146,5 +146,35 @@ describe("settleOnce: phase finished exactly once", () => {
     const idle = createTimer(60);
     const paused = pause(start(idle, T0), T0 + 1000);
     for (const t of [idle, paused]) assert.equal(settleOnce(t, T0 + 10 * MIN).finished, false);
+  });
+});
+
+describe("Scenario: Time and progress are shown while running", () => {
+  test("25 minute focus session with 10:00 left shows 10:00 and 60% elapsed", () => {
+    const running = start(createTimer(25 * 60), T0);
+    const now = T0 + 15 * MIN;
+    assert.equal(displayRemaining(running, now), "10:00");
+    assert.ok(Math.abs(elapsedFraction(running, now) - 0.6) < 1e-12);
+  });
+  test("progress is 0 when idle, 1 when finished, and clamped", () => {
+    const idle = createTimer(60);
+    assert.equal(elapsedFraction(idle, T0), 0);
+    const running = start(idle, T0);
+    assert.equal(elapsedFraction(running, T0 + 10 * MIN), 1);
+    assert.equal(elapsedFraction(running, T0 - MIN), 0);
+    assert.equal(elapsedFraction(createTimer(0), T0), 0);
+  });
+  test("paused timer keeps its progress", () => {
+    const paused = pause(start(createTimer(100), T0), T0 + 25_000);
+    assert.equal(elapsedFraction(paused, T0 + 99_000), 0.25);
+  });
+});
+
+describe("Scenario: Remaining time is shown in the browser tab", () => {
+  test("page title contains 10:00 while running with 10:00 left", () => {
+    const running = start(createTimer(25 * 60), T0);
+    const title = pageTitle(displayRemaining(running, T0 + 15 * MIN), "Focus");
+    assert.ok(title.includes("10:00"));
+    assert.equal(title, "10:00 · Focus – Pomodoro");
   });
 });

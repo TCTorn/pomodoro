@@ -4,13 +4,15 @@ import {
   PHASES, PHASE_LABELS, createState, setDuration, displayTime, durationSeconds,
 } from "./cycle.js";
 import { advance } from "./advance.js";
-import { createTimer, start, pause, reset, displayRemaining } from "./timer.js";
+import { createTimer, start, pause, reset, displayRemaining,
+  elapsedFraction, pageTitle } from "./timer.js";
 
 let state = createState(window.location.search);
 let timer = createTimer(durationSeconds(state));
 
 const phaseEl = document.getElementById("phase");
 const timerEl = document.getElementById("timer");
+const ringEl = document.getElementById("ring");
 const errorEl = document.getElementById("error");
 const startBtn = document.getElementById("start");
 const pauseBtn = document.getElementById("pause");
@@ -82,7 +84,15 @@ function render() {
     phaseEl.textContent = PHASE_LABELS[state.phase];
   }
   // While idle the timer follows the duration inputs; otherwise it counts down.
-  timerEl.textContent = timer.status === "idle" ? displayTime(state) : displayRemaining(timer, now);
+  const timeText = timer.status === "idle" ? displayTime(state) : displayRemaining(timer, now);
+  timerEl.textContent = timeText;
+  document.title = pageTitle(timeText, PHASE_LABELS[state.phase]);
+  // The ring has pathLength 100, so the dash offset is the percent not yet elapsed.
+  const fraction = elapsedFraction(timer, now);
+  ringEl.setAttribute("stroke-dashoffset", String(100 * (1 - fraction)));
+  // A round cap is drawn even for a zero-length dash, so hide the arc at 0 %.
+  ringEl.setAttribute("visibility", fraction > 0 ? "visible" : "hidden");
+  timerEl.classList.toggle("long", timeText.length > 5); // e.g. "100:00"
   for (const kind of PHASES) {
     inputs[kind].value = String(state.minutes[kind]);
     inputs[kind].disabled = timer.status !== "idle"; // Reset unlocks them

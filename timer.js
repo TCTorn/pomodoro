@@ -67,6 +67,18 @@ export function displayRemaining(timer, now) {
   return formatTime(remainingSeconds(timer, now));
 }
 
+/** Share of the session that has elapsed, from 0 to 1 (0.6 = 60%). */
+export function elapsedFraction(timer, now) {
+  if (timer.totalMs <= 0) return 0;
+  const done = 1 - remainingMs(timer, now) / timer.totalMs;
+  return Math.min(1, Math.max(0, done));
+}
+
+/** Page title: remaining time first so it stays visible in a narrow tab. */
+export function pageTitle(timeText, phaseLabel) {
+  return `${timeText} \u00b7 ${phaseLabel} \u2013 Pomodoro`;
+}
+
 function msLeft(timer, now) {
   return Math.max(0, timer.endsAt - now);
 }

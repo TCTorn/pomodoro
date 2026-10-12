@@ -4,6 +4,7 @@ import {
   PHASES, PHASE_LABELS, createState, setDuration, displayTime, durationSeconds,
 } from "./cycle.js";
 import { advance } from "./advance.js";
+import { createNotes, downloadFilename, UNSAVED_MESSAGE } from "./notes.js";
 import { createTimer, start, pause, reset, displayRemaining,
   elapsedFraction, pageTitle } from "./timer.js";
 
@@ -138,5 +139,42 @@ resetBtn.addEventListener("click", () => {
 
 const form = document.getElementById("settings");
 form.addEventListener("submit", (e) => e.preventDefault());
+
+// Notes live outside the timer and are never touched by render().
+const notesEl = document.getElementById("notes-text");
+const notesWarningEl = document.getElementById("notes-warning");
+const notesDownloadBtn = document.getElementById("notes-download");
+
+function browserStorage() {
+  try {
+    return window.localStorage; // reading it can throw when storage is blocked
+  } catch {
+    return null;
+  }
+}
+
+function showSaveState(canSave) {
+  notesWarningEl.textContent = canSave ? "" : UNSAVED_MESSAGE;
+  notesWarningEl.hidden = canSave;
+}
+
+const notes = createNotes({ storage: browserStorage(), onSaveStateChange: showSaveState });
+notesEl.value = notes.load();
+
+notesEl.addEventListener("input", () => notes.set(notesEl.value));
+window.addEventListener("pagehide", () => notes.flush());
+window.addEventListener("beforeunload", () => notes.flush());
+
+notesDownloadBtn.addEventListener("click", () => {
+  const blob = new Blob([notes.text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = downloadFilename(Date.now());
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+});
 
 render();

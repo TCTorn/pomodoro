@@ -17,6 +17,8 @@ Then open http://localhost:8000.
 Optional testing aid: `?focus=0.1` gives a six-second focus phase.
 When a phase ends the app moves to the next one (short break, long break after every 4th focus session, then focus) and waits for Start.
 
+Notes are saved in the browser (localStorage), per web address, and never sent anywhere. Anyone using the same browser profile can read them.
+
 ## Test
 
 `node --test`

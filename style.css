@@ -18,3 +18,7 @@ button { padding: 0.4rem 1rem; font-size: 1rem; }
 input:disabled { background: #eee; color: #777; }
 #phase { font-size: 1.5rem; font-weight: 600; margin: 0.5rem 0 0; }
 #timer.long { font-size: 2.75rem; }
+.notes { display: grid; gap: 0.4rem; text-align: left; margin: 1rem 0; }
+#notes-text { width: 100%; box-sizing: border-box; padding: 0.3rem; font: inherit; resize: vertical; }
+#notes-warning { color: #8a5a00; margin: 0; }
+#notes-download { justify-self: start; }

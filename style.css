@@ -22,3 +22,4 @@ input:disabled { background: #eee; color: #777; }
 #notes-text { width: 100%; box-sizing: border-box; padding: 0.3rem; font: inherit; resize: vertical; }
 #notes-warning { color: #8a5a00; margin: 0; }
 #notes-download { justify-self: start; }
+#notice { font-weight: 600; color: #8a1f12; margin: 0.25rem 0 0; }

@@ -4,9 +4,15 @@ import {
   PHASES, PHASE_LABELS, createState, setDuration, displayTime, durationSeconds,
 } from "./cycle.js";
 import { advance } from "./advance.js";
+import { createAlerter } from "./alert.js";
 import { createNotes, downloadFilename, UNSAVED_MESSAGE } from "./notes.js";
 import { createTimer, start, pause, reset, displayRemaining,
   elapsedFraction, pageTitle } from "./timer.js";
+
+const alerter = createAlerter({
+  createAudioContext: () => new (window.AudioContext || window.webkitAudioContext)(),
+  Notification: typeof Notification === "undefined" ? undefined : Notification,
+});
 
 let state = createState(window.location.search);
 let timer = createTimer(durationSeconds(state));
@@ -14,6 +20,7 @@ let timer = createTimer(durationSeconds(state));
 const phaseEl = document.getElementById("phase");
 const timerEl = document.getElementById("timer");
 const ringEl = document.getElementById("ring");
+const noticeEl = document.getElementById("notice");
 const errorEl = document.getElementById("error");
 const startBtn = document.getElementById("start");
 const pauseBtn = document.getElementById("pause");
@@ -55,21 +62,12 @@ function stopTicking() {
   }
 }
 
-/**
- * Single hook for the end of a phase. Called exactly once per finished phase,
- * after the app has moved to the next phase. AF-12 plays the alert here.
- * @param {string} finishedPhase "focus", "short" or "long"
- */
-function onPhaseFinished(finishedPhase) {
-  // Placeholder: the alert sound/notification is AF-12.
-}
-
 /** Settle the timer at `now` and switch phase if it just ended. */
 function settleAndAdvance(now) {
   const step = advance(state, timer, now);
   state = step.state;
   timer = step.timer;
-  if (step.finished) onPhaseFinished(step.finishedPhase);
+  alerter.onAdvance(step); // exactly once per finished phase
 }
 
 function onTick() {
@@ -87,7 +85,12 @@ function render() {
   // While idle the timer follows the duration inputs; otherwise it counts down.
   const timeText = timer.status === "idle" ? displayTime(state) : displayRemaining(timer, now);
   timerEl.textContent = timeText;
-  document.title = pageTitle(timeText, PHASE_LABELS[state.phase]);
+  // A finished phase is announced in the page itself until Start is pressed.
+  const done = alerter.current();
+  const noticeText = done ? done.notice : "";
+  if (noticeEl.textContent !== noticeText) noticeEl.textContent = noticeText; // aria-live
+  noticeEl.hidden = !done;
+  document.title = done ? done.title : pageTitle(timeText, PHASE_LABELS[state.phase]);
   // The ring has pathLength 100, so the dash offset is the percent not yet elapsed.
   const fraction = elapsedFraction(timer, now);
   ringEl.setAttribute("stroke-dashoffset", String(100 * (1 - fraction)));
@@ -109,6 +112,7 @@ for (const kind of PHASES) {
   inputs[kind].addEventListener("change", () => {
     const result = setDuration(state, kind, inputs[kind].value);
     state = result.state;
+    alerter.clear();
     errorEl.textContent = result.error ?? "";
     inputs[kind].setAttribute("aria-invalid", String(result.error !== null));
     if (timer.status === "idle") timer = createTimer(durationSeconds(state));
@@ -117,6 +121,7 @@ for (const kind of PHASES) {
 }
 
 startBtn.addEventListener("click", () => {
+  alerter.prepare(); // user gesture: unlock sound, ask for notification permission
   timer = start(timer, Date.now());
   if (timer.status === "running") startTicking();
   render();
@@ -133,6 +138,7 @@ pauseBtn.addEventListener("click", () => {
 resetBtn.addEventListener("click", () => {
   settleAndAdvance(Date.now()); // do not discard a phase that has already ended
   timer = reset(timer, durationSeconds(state));
+  alerter.clear();
   stopTicking();
   render();
 });
